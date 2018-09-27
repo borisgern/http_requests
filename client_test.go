@@ -2,26 +2,29 @@ package main
 
 import (
 	"fmt"
-	mockhttp "github.com/karupanerura/go-mock-http-response"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
-const validAccessToken = "valid"
-const invalidAccessToken = "invalid"
-const baseURL = "http://..."
-
-func mockResponse(statusCode int, headers map[string]string, body []byte) {
-	client = mockhttp.NewResponseMock(statusCode, headers, body).MakeClient()
+func TestInvalidAccesToken(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	client := &SearchClient{URL: server.URL}
+	response, err := client.FindUsers(SearchRequest{})
+	if response != nil || err.Error() != "Bad AccessToken" {
+		t.Errorf("Access without valid AccessToken should be prohibited\n")
+	}
 }
 
-func TestInvalidAccesToken(t *testing.T) {
-	client := &SearchClient{URL: baseURL, AccessToken: invalidAccessToken}
-	mockResponse(http.StatusUnauthorized, map[string]string{"AccessToken": validAccessToken}, []byte("Invalid access token"))
-	request := SearchRequest{}
-	response, err := client.FindUsers(request)
-	fmt.Printf("response %v, error %v\n", response, err)
-	if response != nil && err != fmt.Errorf("Bad AccessToken") {
-		t.Errorf("Access with invalid AccessToken %v should be prohibited\n", invalidAccessToken)
+func TestInternalServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	client := &SearchClient{URL: server.URL}
+	response, err := client.FindUsers(SearchRequest{})
+	if response != nil || err.Error() != "SearchServer fatal error" {
+		t.Errorf("Server internal error\n")
 	}
 }
